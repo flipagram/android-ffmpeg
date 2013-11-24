@@ -20,3 +20,11 @@ pushd sox
 make clean
 
 popd
+pushd ogg
+make clean
+
+popd
+pushd vorbis
+make clean
+
+popd
