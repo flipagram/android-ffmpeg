@@ -16,6 +16,10 @@ else
     NDK_PROCESSOR=x86
 fi
 
+# GCC
+FG_ARCH=armv7-a
+FG_FPU=vfpv3
+
 # Android NDK setup
 NDK_PLATFORM_LEVEL=3
 NDK_ABI=arm
