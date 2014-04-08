@@ -4,11 +4,9 @@ pushd `dirname $0`
 
 find . -name \*.o -delete
 
-pushd x264
-make clean
+rm -rf dest
 
-popd
-pushd freetype2
+pushd x264
 make clean
 
 popd
@@ -16,15 +14,5 @@ pushd ffmpeg
 make clean
 
 popd
-pushd sox
-make clean
 
-popd
-pushd ogg
-make clean
 
-popd
-pushd vorbis
-make clean
-
-popd

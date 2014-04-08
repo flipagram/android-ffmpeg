@@ -6,15 +6,6 @@ function die {
 
 ./clean.sh
 
-./configure_ogg.sh || die "ogg configure"
-./make_ogg.sh || die "ogg make"
-
-./configure_libfaac.sh || die "libfaac configure"
-./make_libfaac.sh || die "libfaac make"
-
-./configure_vorbis.sh || die "vorbis configure"
-./make_vorbis.sh || die "vorbis make"
-
 ./configure_x264.sh || die "X264 configure"
 ./make_x264.sh || die "X264 make"
 

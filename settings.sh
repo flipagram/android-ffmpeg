@@ -1,7 +1,13 @@
 #!/bin/bash
+CWD=`pwd`
+
+# FLIPAGRAM CONFIGURATION
+FG_ARCH=arm
+FG_FPU=neon
+FG_DEST=$CWD/dest
+
 
 # set the base path to your Android NDK (or export NDK to environment)
-
 if [[ "x$NDK_BASE" == "x" ]]; then
     NDK_BASE=/opt/android-ndk
     echo "No NDK_BASE set, using $NDK_BASE"
@@ -15,10 +21,6 @@ if [ $(uname -m) = "x86_64" ]; then
 else
     NDK_PROCESSOR=x86
 fi
-
-# GCC
-FG_ARCH=armv7-a
-FG_FPU=vfpv3
 
 # Android NDK setup
 NDK_PLATFORM_LEVEL=3
@@ -50,7 +52,6 @@ function current_dir {
   echo "$(cd "$(dirname $0)"; pwd)"
 }
 
-CWD=`pwd`
 PROJECT_ROOT=$CWD
 EXTERNAL_ROOT=$PROJECT_ROOT
 
