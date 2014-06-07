@@ -29,9 +29,6 @@ check_exit() {
 build_for_profile() {
 	profile=$1
 	ndk_base=$2
-	echo ""
-	echo "# Building $profile"
-	echo ""
 
 	# bring in settings
 	. profiles/$profile.profile
@@ -49,31 +46,33 @@ build_for_profile() {
 	NDK_TOOLCHAIN_BASE=$ndk_base/toolchains/$FG_NDK_TOOLCHAIN/prebuilt/$NDK_UNAME-$HOST_PROCESSOR
 	NDK_SYSROOT=$ndk_base/platforms/android-$FG_NDK_API_LEVEL/arch-$FG_NDK_ARCH
 	echo ""
-	echo "***************** BUILD CONFIG"
-	echo "* NDK_TOOLCHAIN_BASE: $NDK_TOOLCHAIN_BASE"
-	echo "* NDK_SYSROOT: $NDK_SYSROOT"
-	echo "***************** /BUILD CONFIG"
+	echo "##"
+	echo "# NDK_BASE: $NDK_BASE"
+	echo "# PROFILE: $profile"
+	echo "# NDK_TOOLCHAIN_BASE: $NDK_TOOLCHAIN_BASE"
+	echo "# NDK_SYSROOT: $NDK_SYSROOT"
+	echo "##"
 	echo ""
 
 	# configure
 	cd x264 && \
-		echo ./configure --cross-prefix=$NDK_TOOLCHAIN_BASE/bin/$FG_NDK_CROSS_PREFIX \
-			--extra-cflags=\"$FG_X264_EXTRA_CFLAGS\" \
+		./configure --cross-prefix=$NDK_TOOLCHAIN_BASE/bin/$FG_NDK_CROSS_PREFIX \
+			--extra-cflags="$FG_X264_EXTRA_CFLAGS" \
 			--prefix=$PREFIX \
-			--sysroot=$NDK_SYSROOT \
+			--sysroot="$NDK_SYSROOT" \
 			--host=$FG_X264_HOST \
 			--enable-pic \
 			--enable-static \
 			--disable-asm \
-			--disable-cli > wtf.sh && \
-		echo "make install" >> wtf.sh && \
-		sh wtf.sh && \
+			--disable-cli && \
+		make -j4 && \
+		make -j4 prefix=$PREFIX install && \
 		cd ..
 	check_exit $?
 
 	# configure
 	cd ffmpeg && \
-		echo ./configure --cross-prefix=$NDK_TOOLCHAIN_BASE/bin/$FG_NDK_CROSS_PREFIX \
+		./configure --cross-prefix=$NDK_TOOLCHAIN_BASE/bin/$FG_NDK_CROSS_PREFIX \
 			--arch=$FG_NDK_ARCH \
 			--cpu=$FG_FFMPEG_CPU \
 			--target-os=linux \
@@ -83,12 +82,13 @@ build_for_profile() {
 			--disable-shared \
 			--enable-static \
 			--sysroot=$NDK_SYSROOT \
-			--extra-cflags=\"-I../x264 -I$PREFIX/include $FG_FFMPEG_EXTRA_CFLAGS\" \
-			--extra-ldflags=\"-L../x264 -L$PREFIX/lib\" \
+			--extra-cflags="-I../x264 -I$PREFIX/include $FG_FFMPEG_EXTRA_CFLAGS" \
+			--extra-ldflags="-L../x264 -L$PREFIX/lib" \
 			--enable-nonfree \
 			--enable-version3 \
 			--enable-gpl \
-			--enable-yasm \
+			--disable-yasm \
+			--disable-asm \
 			--enable-decoders \
 			--enable-encoders \
 			--enable-muxers \
@@ -108,9 +108,9 @@ build_for_profile() {
 			--disable-network \
 			--enable-libx264 \
 			--enable-zlib \
-			--enable-muxer=md5 > wtf.sh && \
-		echo "make install" >> wtf.sh && \
-		sh wtf.sh && \
+			--enable-muxer=md5 && \
+		make -j4 && \
+		make -j4 prefix=$PREFIX install && \
 		cd ..
 	check_exit $?
 
@@ -141,14 +141,6 @@ while getopts "p:n:" opt; do
     esac
 done
 
-
-# log
-echo ""
-echo "# Build configuration:"
-echo "#     NDK_BASE:    $NDK_BASE"
-echo "#     PROFILES:    $PROFILES"
-echo ""
-
 # clean first
 if [[ -e build ]];
 then
@@ -165,8 +157,9 @@ git submodule deinit -f . && \
 check_exit $?
 
 # build
-for p in "$PROFILES";
-do build_for_profile $p $NDK_BASE
+for p in $PROFILES;
+do 
+	build_for_profile "$p" "$NDK_BASE"
 done
 
 
