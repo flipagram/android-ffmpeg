@@ -25,7 +25,7 @@ fi
 # Android NDK setup
 NDK_PLATFORM_LEVEL=3
 NDK_ABI=arm
-NDK_COMPILER_VERSION=4.6
+NDK_TOOLCHAIN_BASE=""
 NDK_SYSROOT=$NDK_BASE/platforms/android-$NDK_PLATFORM_LEVEL/arch-$NDK_ABI
 NDK_UNAME=`uname -s | tr '[A-Z]' '[a-z]'`
 if [ $NDK_ABI = "x86" ]; then

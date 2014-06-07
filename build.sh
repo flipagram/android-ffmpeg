@@ -6,10 +6,8 @@ cat << EOF
 usage: $0 options
 
 OPTIONS:
-   -c             	clean
-   -b             	build
-   -u 				update git submodules
-   -p=[profile]   	the profile to use
+   -n [ndk base] 	base path to ndk
+   -p [profile] 	the profile to use
 EOF
 exit 1
 }
@@ -29,41 +27,113 @@ check_exit() {
 
 # builds for a particular profile
 build_for_profile() {
-	clean=$1
-	build=$2
-	profile=$3
+	profile=$1
+	ndk_base=$2
 	echo ""
-	echo "# Building $profile, clean:$clean, build:$build"
+	echo "# Building $profile"
 	echo ""
 
-	if [[ "$clean"=="1" ]];
+	# bring in settings
+	. profiles/$profile.profile
+	check_exit $?
+
+	# setup ndk
+	HOST_PROCESSOR=x86
+	if [[ $(uname -m) == "x86_64" ]];
 	then
-		cd x264 && make clean && cd ..
-		check_exit $?
-
+	    HOST_PROCESSOR=x86_64
 	fi
+	# the rest
+	PREFIX="$(pwd)/build/$profile"
+	NDK_UNAME=`uname -s | tr '[A-Z]' '[a-z]'`
+	NDK_TOOLCHAIN_BASE=$ndk_base/toolchains/$FG_NDK_TOOLCHAIN/prebuilt/$NDK_UNAME-$HOST_PROCESSOR
+	NDK_SYSROOT=$ndk_base/platforms/android-$FG_NDK_API_LEVEL/arch-$FG_NDK_ARCH
+	echo ""
+	echo "***************** BUILD CONFIG"
+	echo "* NDK_TOOLCHAIN_BASE: $NDK_TOOLCHAIN_BASE"
+	echo "* NDK_SYSROOT: $NDK_SYSROOT"
+	echo "***************** /BUILD CONFIG"
+	echo ""
 
+	# configure
+	cd x264 && \
+		echo ./configure --cross-prefix=$NDK_TOOLCHAIN_BASE/bin/$FG_NDK_CROSS_PREFIX \
+			--extra-cflags=\"$FG_X264_EXTRA_CFLAGS\" \
+			--prefix=$PREFIX \
+			--sysroot=$NDK_SYSROOT \
+			--host=$FG_X264_HOST \
+			--enable-pic \
+			--enable-static \
+			--disable-asm \
+			--disable-cli > wtf.sh && \
+		echo "make install" >> wtf.sh && \
+		sh wtf.sh && \
+		cd ..
+	check_exit $?
+
+	# configure
+	cd ffmpeg && \
+		echo ./configure --cross-prefix=$NDK_TOOLCHAIN_BASE/bin/$FG_NDK_CROSS_PREFIX \
+			--arch=$FG_NDK_ARCH \
+			--cpu=$FG_FFMPEG_CPU \
+			--target-os=linux \
+			--enable-runtime-cpudetect \
+			--prefix=$PREFIX \
+			--enable-pic \
+			--disable-shared \
+			--enable-static \
+			--sysroot=$NDK_SYSROOT \
+			--extra-cflags=\"-I../x264 -I$PREFIX/include $FG_FFMPEG_EXTRA_CFLAGS\" \
+			--extra-ldflags=\"-L../x264 -L$PREFIX/lib\" \
+			--enable-nonfree \
+			--enable-version3 \
+			--enable-gpl \
+			--enable-yasm \
+			--enable-decoders \
+			--enable-encoders \
+			--enable-muxers \
+			--enable-demuxers \
+			--enable-parsers \
+			--enable-protocols \
+			--enable-filters \
+			--enable-avresample \
+			--disable-indevs \
+			--enable-indev=lavfi \
+			--disable-outdevs \
+			--enable-hwaccels \
+			--disable-ffmpeg \
+			--disable-ffplay \
+			--disable-ffprobe \
+			--disable-ffserver \
+			--disable-network \
+			--enable-libx264 \
+			--enable-zlib \
+			--enable-muxer=md5 > wtf.sh && \
+		echo "make install" >> wtf.sh && \
+		sh wtf.sh && \
+		cd ..
+	check_exit $?
+
+	# clean
+	cd x264 && make clean && cd ..
+	check_exit $?
+	cd ffmpeg && make clean && cd ..
+	check_exit $?
+
+	# build
 
 }
 
 # get args
-CLEAN=""
-BUILD=""
-UPDATE=""
 PROFILES=""
-while getopts "cbup:" opt; do
+NDK_BASE=$ANDROID_NDK_HOME
+while getopts "p:n:" opt; do
     case $opt in
-        c)
-            CLEAN=1
-            ;;
-        b)
-            BUILD=1
-            ;;
         p)
             PROFILES="$PROFILES$OPTARG "
             ;;
-        u)
-            UPDATE=1
+        n)
+            NDK_BASE="$OPTARG"
             ;;
         ?)
             usage
@@ -71,56 +141,32 @@ while getopts "cbup:" opt; do
     esac
 done
 
-# check args
-if [[ -z $CLEAN && -z $BUILD ]];
-then
-	echo "Error, must at least clean or compile"
-	usage
-elif [[ -z "$PROFILES" ]];
-then
-	echo "Error, must profile a profile"
-	usage
-fi
 
 # log
 echo ""
 echo "# Build configuration:"
-echo "#     CLEAN: $CLEAN"
-echo "#     BUILD: $BUILD"
-echo "#     UPDATE: $UPDATE"
-echo "#     PROFILES: $PROFILES"
+echo "#     NDK_BASE:    $NDK_BASE"
+echo "#     PROFILES:    $PROFILES"
+echo ""
 
-# update
-if [[ ! -z "$UPDATE" ]];
+# clean first
+if [[ -e build ]];
 then
-
-	# clean first
-	if [[ ! -z "$CLEAN" && -e "ffmpeg" ]];
-	then
-		rm -rf ffmpeg && mkdir ffmpeg
-	else
-		mkdir -p ffmpeg
-	fi
-	if [[ ! -z "$CLEAN" && -e "x264" ]];
-	then
-		rm -rf x264 && mkdir x264
-	else
-		mkdir -p x264
-	fi
-	if [[ ! -z "$CLEAN" ]];
-	then
-		git submodule deinit -f .
-	fi
-
-	# init
-	git submodule init && \
-		git submodule update
-	check_exit $?
+	rm -rf build
 fi
+mkdir build
+rm -rf ffmpeg && mkdir ffmpeg && mkdir -p ffmpeg
+check_exit $?
+rm -rf x264 && mkdir x264 && mkdir -p x264
+check_exit $?
+git submodule deinit -f . && \
+	git submodule init && \
+	git submodule update
+check_exit $?
 
 # build
 for p in "$PROFILES";
-do build_for_profile $CLEAN $BUILD $p
+do build_for_profile $p $NDK_BASE
 done
 
 
